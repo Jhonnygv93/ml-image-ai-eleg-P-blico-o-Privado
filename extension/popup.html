@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>ML Image AI</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>ML Image AI</h1>
+      <p class="subtitle">Genera 12 imágenes de producto a partir de tu publicación</p>
+    </header>
+
+    <main>
+      <div id="idle-state">
+        <p class="hint">
+          Abrí la publicación de MercadoLibre en la pestaña activa y presioná el botón.
+          Se usará tu <strong>primera foto</strong> como imagen de referencia.
+        </p>
+        <button id="run-btn" class="primary-btn">Analizar publicación y generar imágenes</button>
+      </div>
+
+      <div id="loading-state" class="hidden">
+        <div class="spinner"></div>
+        <p id="loading-text">Analizando publicación…</p>
+      </div>
+
+      <div id="error-state" class="hidden">
+        <p class="error-text" id="error-text"></p>
+        <button id="retry-btn" class="secondary-btn">Reintentar</button>
+      </div>
+
+      <div id="result-state" class="hidden">
+        <p class="listing-title" id="listing-title"></p>
+        <div class="grid" id="image-grid"></div>
+        <div class="actions">
+          <button id="download-all-btn" class="primary-btn">Descargar todas</button>
+          <button id="run-again-btn" class="secondary-btn">Generar de nuevo</button>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <label for="backend-url">Backend URL</label>
+      <input type="text" id="backend-url" placeholder="http://localhost:3000" />
+      <button id="save-backend-btn" class="link-btn">Guardar</button>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

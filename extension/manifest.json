@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "ML Image AI - Generador de imágenes con IA",
+  "version": "1.1.0",
+  "description": "Analiza tu publicación de MercadoLibre, toma tu primera foto como referencia y genera 12 imágenes de producto con IA.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://*.mercadolibre.com/*",
+    "https://*.mercadolibre.com.ar/*",
+    "https://*.mercadolibre.com.mx/*",
+    "https://*.mercadolibre.cl/*",
+    "https://*.mercadolibre.com.co/*",
+    "https://*.mercadolibre.com.pe/*",
+    "https://*.mercadolibre.com.uy/*",
+    "https://*.mercadolibre.com.ve/*",
+    "https://*.mercadolibre.com.bo/*",
+    "https://*.mercadolibre.com.ec/*",
+    "https://*.mercadolibre.com.gt/*",
+    "http://localhost:3000/*",
+    "https://tu-backend-desplegado.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ML Image AI"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.mercadolibre.com/*",
+        "https://*.mercadolibre.com.ar/*",
+        "https://*.mercadolibre.com.mx/*",
+        "https://*.mercadolibre.cl/*",
+        "https://*.mercadolibre.com.co/*",
+        "https://*.mercadolibre.com.pe/*",
+        "https://*.mercadolibre.com.uy/*",
+        "https://*.mercadolibre.com.ve/*",
+        "https://*.mercadolibre.com.bo/*",
+        "https://*.mercadolibre.com.ec/*",
+        "https://*.mercadolibre.com.gt/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "128": "icon128.png"
+  }
+}

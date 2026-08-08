@@ -1,0 +1,19 @@
+{
+  "name": "ml-image-ai-server",
+  "version": "1.1.0",
+  "description": "Backend que genera 12 imágenes de producto con IA a partir de una publicación de MercadoLibre, usando la primera foto de la publicación como referencia visual.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "openai": "^4.68.0",
+    "p-limit": "^5.0.0",
+    "sharp": "^0.33.5"
+  }
+}
