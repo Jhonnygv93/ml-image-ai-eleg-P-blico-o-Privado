@@ -80,6 +80,26 @@ plantillas de fallback) solo los interpreta y redacta.
 - `GET /api/ml/oauth/url`, `GET /api/ml/oauth/callback` — flujo OAuth real
   contra MercadoLibre (requiere credenciales, ver abajo).
 
+## Desplegar (Render u otro hosting Node)
+
+El backend puede servir el frontend ya compilado desde el mismo proceso, así
+que todo el proyecto se despliega como **un solo servicio web**:
+
+- **Build command**: `cd account-audit/frontend && npm install && npm run build && cd ../backend && npm install`
+- **Start command**: `cd account-audit/backend && npm start`
+- **Variables de entorno**: `OPENAI_API_KEY` (opcional), `ML_CLIENT_ID`,
+  `ML_CLIENT_SECRET`, `ML_SITE_ID`, `ML_REDIRECT_URI` (la URL pública que te
+  da el hosting + `/api/ml/oauth/callback`). No hace falta setear `PORT`,
+  el hosting lo inyecta solo y `server.js` ya lo respeta.
+- El disco donde vive `data/account-audit.db` (SQLite) puede no ser
+  persistente en el plan gratuito de algunos hostings — los datos demo se
+  vuelven a sembrar solos si la base aparece vacía en un reinicio; para datos
+  reales conviene un disco persistente o migrar a una base gestionada.
+
+Una vez desplegado, actualizá el **Redirect URI** en developers.mercadolibre.com
+(pestaña "Configuración y scopes" de tu app) para que apunte a la URL real en
+vez del placeholder.
+
 ## Conectar una cuenta real de MercadoLibre
 
 1. Registrá una app en el [portal de Developers de MercadoLibre](https://developers.mercadolibre.com/).
