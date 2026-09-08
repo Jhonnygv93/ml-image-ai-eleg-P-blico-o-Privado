@@ -8,7 +8,11 @@ CREATE TABLE IF NOT EXISTS sellers (
   site_id         TEXT NOT NULL DEFAULT 'MLC',
   reputation_tier TEXT,
   connected_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  is_demo         INTEGER NOT NULL DEFAULT 0
+  is_demo         INTEGER NOT NULL DEFAULT 0,
+  access_token    TEXT,             -- token real de MercadoLibre (cuentas no-demo)
+  refresh_token   TEXT,
+  token_expires_at TEXT,
+  last_synced_at  TEXT
 );
 
 CREATE TABLE IF NOT EXISTS items (

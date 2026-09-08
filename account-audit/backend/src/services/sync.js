@@ -1,0 +1,284 @@
+// Sincroniza una cuenta REAL de MercadoLibre: trae publicaciones, visitas,
+// ventas, stock y reputación desde la API y las escribe en las mismas tablas
+// que usa el modo demo (db/seed.js). No calcula ningún indicador — analytics/
+// rules/scoring/pdf son exactamente el mismo código para datos demo o reales.
+//
+// Limitaciones conocidas (API pública de MercadoLibre):
+// - No expone el costo del producto -> base_cost queda null (el score de
+//   publicidad/ROAS por margen requiere que el seller lo cargue a mano).
+// - No expone histórico de stock -> solo se guarda el stock de "hoy"; el
+//   histórico se va construyendo con syncs sucesivos.
+// - No expone devoluciones por causa (mismatch/talla/calidad) -> quedan en 0.
+
+import { db } from "../db/db.js";
+import { getMe, listItemIds, getItem, getItemVisitsTimeWindow, searchOrders, getSellerReputation } from "../ml/client.js";
+import { refreshAccessToken } from "../ml/oauth.js";
+
+const MAX_ITEMS = 200; // cota razonable para no colgar el sync en catálogos enormes
+const HISTORY_DAYS = 90;
+const MAX_ORDERS = 1000; // cota de seguridad al paginar órdenes
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+function dateStr(daysAgo) {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
+
+const upsertSellerBasic = db.prepare(`
+  INSERT INTO sellers (seller_id, nickname, site_id, reputation_tier, is_demo, access_token, refresh_token, token_expires_at, last_synced_at)
+  VALUES (@seller_id, @nickname, @site_id, @reputation_tier, 0, @access_token, @refresh_token, @token_expires_at, @last_synced_at)
+  ON CONFLICT(seller_id) DO UPDATE SET
+    nickname = excluded.nickname,
+    site_id = excluded.site_id,
+    reputation_tier = COALESCE(excluded.reputation_tier, sellers.reputation_tier),
+    access_token = excluded.access_token,
+    refresh_token = excluded.refresh_token,
+    token_expires_at = excluded.token_expires_at,
+    last_synced_at = excluded.last_synced_at
+`);
+
+const upsertItem = db.prepare(`
+  INSERT INTO items (item_id, seller_id, title, category, price, base_cost, status, has_full, free_shipping, photos_count, catalog)
+  VALUES (@item_id, @seller_id, @title, @category, @price, @base_cost, @status, @has_full, @free_shipping, @photos_count, @catalog)
+  ON CONFLICT(item_id) DO UPDATE SET
+    title = excluded.title,
+    category = excluded.category,
+    price = excluded.price,
+    status = excluded.status,
+    has_full = excluded.has_full,
+    free_shipping = excluded.free_shipping,
+    photos_count = excluded.photos_count,
+    catalog = excluded.catalog
+`);
+
+const deleteVisits = db.prepare(`DELETE FROM visits WHERE item_id = ?`);
+const insertVisit = db.prepare(`INSERT INTO visits (item_id, date, visits) VALUES (?, ?, ?)`);
+
+const deleteInventoryToday = db.prepare(`DELETE FROM inventory WHERE item_id = ? AND date = ?`);
+const insertInventory = db.prepare(`INSERT INTO inventory (item_id, date, stock) VALUES (?, ?, ?)`);
+
+const deleteSalesForItem = db.prepare(`DELETE FROM sales WHERE item_id = ?`);
+const insertSale = db.prepare(`INSERT INTO sales (item_id, date, units, revenue, orders) VALUES (?, ?, ?, ?, ?)`);
+
+const deleteReputationToday = db.prepare(`DELETE FROM reputation WHERE seller_id = ? AND date = ?`);
+const insertReputation = db.prepare(`
+  INSERT INTO reputation (seller_id, date, claims, cancellations, delays, returns, return_reason_mismatch, return_reason_size, return_reason_quality, reputation_score)
+  VALUES (@seller_id, @date, @claims, @cancellations, @delays, @returns, @return_reason_mismatch, @return_reason_size, @return_reason_quality, @reputation_score)
+`);
+
+function mapHasFull(item) {
+  return item.shipping && item.shipping.logistic_type === "fulfillment" ? 1 : 0;
+}
+
+/** Refresca el access_token si ya venció (dura ~6hs), guardando el nuevo par en `sellers`. */
+async function ensureFreshToken(seller) {
+  const expiresAt = seller.token_expires_at ? new Date(seller.token_expires_at).getTime() : 0;
+  if (expiresAt > Date.now() + 60_000) return seller; // todavía válido, con 1 min de margen
+
+  const refreshed = await refreshAccessToken(seller.refresh_token);
+  const tokenExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
+  const updated = {
+    seller_id: seller.seller_id,
+    nickname: seller.nickname,
+    site_id: seller.site_id,
+    reputation_tier: seller.reputation_tier,
+    access_token: refreshed.access_token,
+    refresh_token: refreshed.refresh_token || seller.refresh_token,
+    token_expires_at: tokenExpiresAt,
+    last_synced_at: seller.last_synced_at,
+  };
+  upsertSellerBasic.run(updated);
+  return { ...seller, ...updated };
+}
+
+async function syncItemVisits(itemId, accessToken) {
+  try {
+    const data = await getItemVisitsTimeWindow(itemId, accessToken, { last: HISTORY_DAYS, unit: "day" });
+    const results = Array.isArray(data.results) ? data.results : [];
+    deleteVisits.run(itemId);
+    for (const r of results) {
+      const date = String(r.date).slice(0, 10); // la API devuelve fecha+hora ISO
+      insertVisit.run(itemId, date, r.total || 0);
+    }
+  } catch (err) {
+    console.warn(`sync: no se pudieron traer visitas de ${itemId}: ${err.message}`);
+  }
+}
+
+async function syncSellerReputation(sellerId, accessToken) {
+  try {
+    const user = await getSellerReputation(sellerId, accessToken);
+    const rep = user.seller_reputation || {};
+    const metrics = rep.metrics || {};
+    const claims = metrics.claims ? Math.round(metrics.claims.value || 0) : 0;
+    const cancellations = metrics.cancellations ? Math.round(metrics.cancellations.value || 0) : 0;
+    const delays = metrics.delayed_handling_time ? Math.round(metrics.delayed_handling_time.value || 0) : 0;
+
+    // La API pública no desglosa devoluciones por causa (mismatch/talla/calidad):
+    // ese dato vive en el panel interno del seller, no en este endpoint.
+    const levelScores = { 5: 98, 4: 90, 3: 78, 2: 60, 1: 40 };
+    const levelNumber = Number(String(rep.level_id || "").match(/\d/)?.[0]);
+    const reputationScore = levelScores[levelNumber] ?? null;
+
+    const date = todayStr();
+    deleteReputationToday.run(sellerId, date);
+    insertReputation.run({
+      seller_id: sellerId,
+      date,
+      claims,
+      cancellations,
+      delays,
+      returns: 0,
+      return_reason_mismatch: 0,
+      return_reason_size: 0,
+      return_reason_quality: 0,
+      reputation_score: reputationScore,
+    });
+    return rep.power_seller_status || null;
+  } catch (err) {
+    console.warn(`sync: no se pudo traer reputación de ${sellerId}: ${err.message}`);
+    return null;
+  }
+}
+
+async function syncSales(sellerId, itemIds, accessToken) {
+  const itemIdSet = new Set(itemIds);
+  const dateFrom = `${dateStr(HISTORY_DAYS - 1)}T00:00:00.000-00:00`;
+  const dateTo = `${todayStr()}T23:59:59.999-00:00`;
+
+  const perItemPerDate = new Map(); // item_id -> date -> { units, revenue, orders: Set }
+
+  let offset = 0;
+  const limit = 50;
+  let total = Infinity;
+  try {
+    while (offset < total && offset < MAX_ORDERS) {
+      const page = await searchOrders(sellerId, accessToken, { dateFrom, dateTo, offset, limit });
+      total = page.paging ? page.paging.total : 0;
+      const results = Array.isArray(page.results) ? page.results : [];
+      for (const order of results) {
+        if (order.status === "cancelled") continue;
+        const date = String(order.date_created).slice(0, 10);
+        for (const oi of order.order_items || []) {
+          const itemId = oi.item && oi.item.id;
+          if (!itemId || !itemIdSet.has(itemId)) continue;
+          if (!perItemPerDate.has(itemId)) perItemPerDate.set(itemId, new Map());
+          const perDate = perItemPerDate.get(itemId);
+          if (!perDate.has(date)) perDate.set(date, { units: 0, revenue: 0, orders: new Set() });
+          const bucket = perDate.get(date);
+          bucket.units += oi.quantity || 0;
+          bucket.revenue += (oi.quantity || 0) * (oi.unit_price || 0);
+          bucket.orders.add(order.id);
+        }
+      }
+      offset += limit;
+      if (results.length === 0) break;
+    }
+  } catch (err) {
+    console.warn(`sync: no se pudieron traer órdenes de ${sellerId}: ${err.message}`);
+  }
+
+  for (const itemId of itemIds) {
+    deleteSalesForItem.run(itemId);
+    const perDate = perItemPerDate.get(itemId);
+    if (!perDate) continue;
+    for (const [date, bucket] of perDate) {
+      insertSale.run(itemId, date, bucket.units, Number(bucket.revenue.toFixed(2)), bucket.orders.size);
+    }
+  }
+}
+
+/**
+ * Sincroniza una cuenta ya conectada (con access_token/refresh_token
+ * guardados en `sellers`, ver routes/seller.js#oauth/callback) trayendo sus
+ * publicaciones, visitas, ventas, stock y reputación reales.
+ */
+export async function syncSeller(sellerId) {
+  let seller = db.prepare(`SELECT * FROM sellers WHERE seller_id = ?`).get(sellerId);
+  if (!seller || !seller.access_token) {
+    throw new Error(`Seller ${sellerId} no tiene una cuenta de MercadoLibre conectada.`);
+  }
+  seller = await ensureFreshToken(seller);
+  const accessToken = seller.access_token;
+
+  const me = await getMe(accessToken);
+  upsertSellerBasic.run({
+    seller_id: sellerId,
+    nickname: me.nickname || seller.nickname,
+    site_id: me.site_id || seller.site_id,
+    reputation_tier: null,
+    access_token: seller.access_token,
+    refresh_token: seller.refresh_token,
+    token_expires_at: seller.token_expires_at,
+    last_synced_at: new Date().toISOString(),
+  });
+
+  const itemIds = [];
+  let offset = 0;
+  const limit = 50;
+  let total = Infinity;
+  while (offset < total && itemIds.length < MAX_ITEMS) {
+    const page = await listItemIds(sellerId, accessToken, { limit, offset });
+    total = page.paging ? page.paging.total : 0;
+    const pageIds = Array.isArray(page.results) ? page.results : [];
+    itemIds.push(...pageIds);
+    offset += limit;
+    if (pageIds.length === 0) break;
+  }
+
+  const syncedItemIds = [];
+  for (const itemId of itemIds.slice(0, MAX_ITEMS)) {
+    try {
+      const item = await getItem(itemId, accessToken);
+      upsertItem.run({
+        item_id: item.id,
+        seller_id: sellerId,
+        title: item.title,
+        category: item.category_id || null,
+        price: item.price,
+        base_cost: null, // no disponible vía API pública; el seller puede cargarlo a futuro
+        status: item.status || "active",
+        has_full: mapHasFull(item),
+        free_shipping: item.shipping && item.shipping.free_shipping ? 1 : 0,
+        photos_count: Array.isArray(item.pictures) ? item.pictures.length : 0,
+        catalog: item.catalog_listing ? 1 : 0,
+      });
+
+      const today = todayStr();
+      deleteInventoryToday.run(item.id, today);
+      insertInventory.run(item.id, today, item.available_quantity ?? 0);
+
+      await syncItemVisits(item.id, accessToken);
+      syncedItemIds.push(item.id);
+    } catch (err) {
+      console.warn(`sync: error sincronizando publicación ${itemId}: ${err.message}`);
+    }
+  }
+
+  await syncSales(sellerId, syncedItemIds, accessToken);
+  const powerSellerStatus = await syncSellerReputation(sellerId, accessToken);
+  if (powerSellerStatus) {
+    db.prepare(`UPDATE sellers SET reputation_tier = ? WHERE seller_id = ?`).run(powerSellerStatus, sellerId);
+  }
+
+  db.prepare(`UPDATE sellers SET last_synced_at = ? WHERE seller_id = ?`).run(new Date().toISOString(), sellerId);
+
+  return { sellerId, itemsSynced: syncedItemIds.length };
+}
+
+/** Guarda el par de tokens recién obtenido por OAuth y crea/actualiza el seller. Uso interno del callback. */
+export function saveSellerToken(sellerId, { nickname, siteId, accessToken, refreshToken, expiresIn }) {
+  upsertSellerBasic.run({
+    seller_id: sellerId,
+    nickname: nickname || sellerId,
+    site_id: siteId || "MLC",
+    reputation_tier: null,
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    last_synced_at: null,
+  });
+}

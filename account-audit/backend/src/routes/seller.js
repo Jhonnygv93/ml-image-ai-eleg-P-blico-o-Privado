@@ -5,6 +5,8 @@ import { computeItemScore } from "../services/scoring.js";
 import { interpretAccount, askAccount } from "../services/ai.js";
 import { streamReportPdf } from "../services/pdf.js";
 import { getAuthorizationUrl, exchangeCodeForToken } from "../ml/oauth.js";
+import { getMe } from "../ml/client.js";
+import { saveSellerToken, syncSeller } from "../services/sync.js";
 
 const router = Router();
 
@@ -66,10 +68,35 @@ router.get("/ml/oauth/callback", async (req, res) => {
     const { code } = req.query;
     if (!code) return res.status(400).json({ error: "Falta ?code en el callback de MercadoLibre." });
     const token = await exchangeCodeForToken(code);
-    // TODO: cuando haya credenciales reales, persistir token.access_token /
-    // token.refresh_token / token.user_id en la tabla sellers y disparar la
-    // primera sincronización de datos (items, órdenes, visitas, etc.).
-    res.json({ connected: true, user_id: token.user_id });
+    const sellerId = String(token.user_id);
+
+    const me = await getMe(token.access_token);
+    saveSellerToken(sellerId, {
+      nickname: me.nickname,
+      siteId: me.site_id,
+      accessToken: token.access_token,
+      refreshToken: token.refresh_token,
+      expiresIn: token.expires_in,
+    });
+
+    let sync = null;
+    try {
+      sync = await syncSeller(sellerId);
+    } catch (err) {
+      console.warn(`No se pudo sincronizar ${sellerId} tras conectar: ${err.message}`);
+    }
+
+    res.json({ connected: true, user_id: sellerId, nickname: me.nickname, sync });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Re-sincroniza una cuenta real ya conectada (usa el refresh_token guardado si el access_token venció).
+router.post("/sellers/:id/sync", async (req, res) => {
+  try {
+    const result = await syncSeller(req.params.id);
+    res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
