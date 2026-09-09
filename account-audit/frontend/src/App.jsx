@@ -53,23 +53,25 @@ function KpiGrid({ k30 }) {
   );
 }
 
-function CatalogBreakdown({ catalog }) {
-  if (!catalog || catalog.total === 0) return null;
+function ListingTypeBreakdown({ listingTypes }) {
+  if (!listingTypes || listingTypes.total === 0) return null;
+  const rows = [
+    ["Catálogo", listingTypes.catalogCount, listingTypes.catalogPct],
+    ["Tradicional", listingTypes.traditionalCount, listingTypes.traditionalPct],
+    ["Producto de usuario", listingTypes.userProductCount, listingTypes.userProductPct],
+  ];
   return (
     <div className="kpi-grid">
-      <div className="kpi-tile">
-        <div className="kpi-label">Publicaciones de catálogo</div>
-        <div className="kpi-value">{catalog.catalogCount}</div>
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{catalog.catalogPct}% del total</span>
-      </div>
-      <div className="kpi-tile">
-        <div className="kpi-label">Publicaciones propias (sin catálogo)</div>
-        <div className="kpi-value">{catalog.ownCount}</div>
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{(100 - catalog.catalogPct).toFixed(1)}% del total</span>
-      </div>
+      {rows.map(([label, count, pct]) => (
+        <div className="kpi-tile" key={label}>
+          <div className="kpi-label">{label}</div>
+          <div className="kpi-value">{count}</div>
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{pct}% del total</span>
+        </div>
+      ))}
       <div className="kpi-tile">
         <div className="kpi-label">Total activas</div>
-        <div className="kpi-value">{catalog.total}</div>
+        <div className="kpi-value">{listingTypes.total}</div>
       </div>
     </div>
   );
@@ -254,8 +256,8 @@ function Dashboard({ sellerId }) {
       </section>
 
       <section className="panel">
-        <h3>Catálogo vs. publicaciones propias</h3>
-        <CatalogBreakdown catalog={data.catalog} />
+        <h3>Tipo de publicación</h3>
+        <ListingTypeBreakdown listingTypes={data.listingTypes} />
       </section>
 
       <section className="panel">

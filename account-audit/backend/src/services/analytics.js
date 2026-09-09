@@ -269,23 +269,37 @@ export function listSellerItems(sellerId) {
   return db.prepare(`SELECT * FROM items WHERE seller_id = ?`).all(sellerId);
 }
 
-/** Cuántas publicaciones activas son de catálogo (compiten en un buybox) vs. propias del vendedor. */
-export function catalogBreakdown(sellerId) {
-  const row = db
-    .prepare(
-      `SELECT
-         SUM(CASE WHEN catalog = 1 THEN 1 ELSE 0 END) AS catalogCount,
-         SUM(CASE WHEN catalog = 0 THEN 1 ELSE 0 END) AS ownCount,
-         COUNT(*) AS total
-       FROM items WHERE seller_id = ? AND status = 'active'`
-    )
-    .get(sellerId);
-  const total = row.total || 0;
+/**
+ * Clasifica las publicaciones activas en 3 tipos:
+ * - "Catálogo": item.catalog = 1 (compite en el buybox de un catalog_product de MercadoLibre).
+ * - "Producto de usuario": el item_id empieza con "<SITE>U" (ej. MLCU...) — el formato de
+ *   publicación multi-variación más nuevo de MercadoLibre ("user product").
+ * - "Tradicional": el resto (item_id clásico "<SITE>...", sin catálogo).
+ */
+export function listingTypeBreakdown(sellerId) {
+  const seller = db.prepare(`SELECT site_id FROM sellers WHERE seller_id = ?`).get(sellerId);
+  const userProductPrefix = `${seller?.site_id || "MLC"}U`;
+  const items = db.prepare(`SELECT item_id, catalog FROM items WHERE seller_id = ? AND status = 'active'`).all(sellerId);
+
+  let catalogCount = 0;
+  let userProductCount = 0;
+  let traditionalCount = 0;
+  for (const it of items) {
+    if (it.catalog) catalogCount += 1;
+    else if (it.item_id.startsWith(userProductPrefix)) userProductCount += 1;
+    else traditionalCount += 1;
+  }
+
+  const total = items.length;
+  const pct = (n) => (total > 0 ? Number(((n / total) * 100).toFixed(1)) : 0);
   return {
-    catalogCount: row.catalogCount || 0,
-    ownCount: row.ownCount || 0,
+    catalogCount,
+    traditionalCount,
+    userProductCount,
     total,
-    catalogPct: total > 0 ? Number(((row.catalogCount / total) * 100).toFixed(1)) : 0,
+    catalogPct: pct(catalogCount),
+    traditionalPct: pct(traditionalCount),
+    userProductPct: pct(userProductCount),
   };
 }
 
