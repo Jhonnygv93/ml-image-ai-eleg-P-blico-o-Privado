@@ -73,15 +73,17 @@ function ReputationWidget({ reputation, expanded, onToggle }) {
         <span className="reputation-dot" style={{ background: tier.color }} />
         <span style={{ fontWeight: 700, color: tier.color }}>{tier.label}</span>
       </div>
-      <div className="reputation-stats">
-        {stats.map(([label, value, hint]) => (
-          <div className="reputation-stat" key={label} title={hint}>
-            <div className="reputation-stat-value">{value}%</div>
-            <div className="reputation-stat-label">{label}</div>
-          </div>
-        ))}
+      <div className="reputation-stats-row">
+        <div className="reputation-stats">
+          {stats.map(([label, value, hint]) => (
+            <div className="reputation-stat" key={label} title={hint}>
+              <div className="reputation-stat-value">{value}%</div>
+              <div className="reputation-stat-label">{label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="detail-toggle">{expanded ? "Ocultar detalle ▲" : "Ver detalle ▸"}</div>
       </div>
-      <div className="detail-toggle">{expanded ? "Ocultar detalle ▲" : "Ver detalle ▸"}</div>
     </div>
   );
 }
