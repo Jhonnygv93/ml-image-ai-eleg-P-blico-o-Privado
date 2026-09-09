@@ -285,7 +285,7 @@ function ClassificationTable({ classification }) {
                         </div>
                         <div>
                           <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Variantes</div>
-                          <strong>{c.variationsCount > 0 ? `${c.variationsCount} variantes` : "Sin variantes"}</strong>
+                          <strong>{c.variationsCount > 0 ? `${c.variationsCount} variantes` : "0 variantes"}</strong>
                         </div>
                         <div>
                           <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Precio</div>
