@@ -18,6 +18,24 @@ const MAX_ITEMS = 200; // cota razonable para no colgar el sync en catálogos en
 const HISTORY_DAYS = 90;
 const MAX_ORDERS = 1000; // cota de seguridad al paginar órdenes
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Reintenta una llamada a la API hasta `retries` veces con backoff simple (útil para 429/timeouts transitorios). */
+async function withRetry(fn, { retries = 2, delayMs = 400 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) await sleep(delayMs * (attempt + 1));
+    }
+  }
+  throw lastErr;
+}
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -98,7 +116,7 @@ async function ensureFreshToken(seller) {
 
 async function syncItemVisits(itemId, accessToken) {
   try {
-    const data = await getItemVisitsTimeWindow(itemId, accessToken, { last: HISTORY_DAYS, unit: "day" });
+    const data = await withRetry(() => getItemVisitsTimeWindow(itemId, accessToken, { last: HISTORY_DAYS, unit: "day" }));
     const results = Array.isArray(data.results) ? data.results : [];
     deleteVisits.run(itemId);
     for (const r of results) {
@@ -245,7 +263,7 @@ export async function syncSeller(sellerId) {
   const syncedItemIds = [];
   for (const itemId of itemIds.slice(0, MAX_ITEMS)) {
     try {
-      const item = await getItem(itemId, accessToken);
+      const item = await withRetry(() => getItem(itemId, accessToken));
       upsertItem.run({
         item_id: item.id,
         seller_id: sellerId,
@@ -271,6 +289,7 @@ export async function syncSeller(sellerId) {
     } catch (err) {
       console.warn(`sync: error sincronizando publicación ${itemId}: ${err.message}`);
     }
+    await sleep(80); // evita ráfagas que disparen el rate limit de la API de MercadoLibre
   }
 
   await syncSales(sellerId, syncedItemIds, accessToken);
