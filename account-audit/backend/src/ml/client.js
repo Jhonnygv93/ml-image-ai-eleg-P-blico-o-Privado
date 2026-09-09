@@ -51,6 +51,16 @@ export async function searchQuestions(sellerId, accessToken, { status = "UNANSWE
   return mlFetch(`/questions/search?${params.toString()}`, accessToken);
 }
 
+// API de reclamos/post-venta: usada para calcular qué publicaciones concentran
+// más reclamos ("Productos con más problemas" del panel de MercadoLibre).
+// Requiere que la app tenga el permiso correspondiente habilitado; si no lo
+// tiene, la llamada devuelve 403/404 y services/sync.js lo maneja como un
+// fallo blando (la sección simplemente no se muestra).
+export async function searchClaims(accessToken, { limit = 50, offset = 0 } = {}) {
+  const params = new URLSearchParams({ player_role: "seller", limit: String(limit), offset: String(offset) });
+  return mlFetch(`/post-purchase/v1/claims/search?${params.toString()}`, accessToken);
+}
+
 // Mercado Ads (Product Ads) vive en un scope/host distinto y requiere el
 // permiso "advertising" habilitado para la app; se deja el esqueleto para
 // cuando esa integración se active.

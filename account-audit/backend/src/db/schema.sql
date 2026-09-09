@@ -95,6 +95,14 @@ CREATE TABLE IF NOT EXISTS reputation (
 );
 CREATE INDEX IF NOT EXISTS idx_reputation_seller_date ON reputation(seller_id, date);
 
+-- Reclamos por publicación (API de post-venta de MercadoLibre), para
+-- "Productos con más problemas". Se recalcula completo en cada sync.
+CREATE TABLE IF NOT EXISTS item_claims (
+  item_id      TEXT PRIMARY KEY REFERENCES items(item_id),
+  claims_count INTEGER NOT NULL DEFAULT 0,
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS competitors (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   item_id     TEXT NOT NULL REFERENCES items(item_id),

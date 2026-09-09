@@ -110,7 +110,7 @@ function ReputationDetail({ reputation }) {
       </div>
 
       {reputation.transactionsTotal != null && (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 26 }}>
           <h4 style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>Historial de transacciones</h4>
           <div className="reputation-metric-grid">
             <div className="reputation-metric-card">
@@ -130,7 +130,7 @@ function ReputationDetail({ reputation }) {
       )}
 
       {reputation.ratingsPositivePct != null && (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 26 }}>
           <h4 style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>Así te ven tus compradores</h4>
           <div className="reputation-metric-grid">
             <div className="reputation-metric-card">
@@ -149,19 +149,22 @@ function ReputationDetail({ reputation }) {
         </div>
       )}
 
-      <div className="reputation-metric-grid">
-        {cards.map(([label, count, rate, changePct]) => (
-          <div className="reputation-metric-card" key={label}>
-            <div className="kpi-label">{label}</div>
-            <div className="kpi-value">{rate}%</div>
-            <Delta value={changePct} />
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{count} de {reputation.orders} ventas</div>
-          </div>
-        ))}
+      <div style={{ marginTop: 26 }}>
+        <h4 style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>Variables sobre tus ventas</h4>
+        <div className="reputation-metric-grid">
+          {cards.map(([label, count, rate, changePct]) => (
+            <div className="reputation-metric-card" key={label}>
+              <div className="kpi-label">{label}</div>
+              <div className="kpi-value">{rate}%</div>
+              <Delta value={changePct} />
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{count} de {reputation.orders} ventas</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        <h4 style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 8px" }}>Tu desempeño</h4>
+      <div style={{ marginTop: 26 }}>
+        <h4 style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>Tu desempeño</h4>
         <div className="reputation-metric-grid">
           <div className="reputation-metric-card">
             <div className="kpi-label">Facturado</div>
@@ -179,7 +182,7 @@ function ReputationDetail({ reputation }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <div style={{ marginTop: 26 }}>
         <h4 style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 8px" }}>Motivos de devolución</h4>
         {reputation.returns === 0 ? (
           <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Sin devoluciones registradas en el período.</p>
@@ -198,11 +201,41 @@ function ReputationDetail({ reputation }) {
         )}
       </div>
 
+      {reputation.topProblemItems && reputation.topProblemItems.length > 0 && (
+        <div style={{ marginTop: 26, textAlign: "left" }}>
+          <h4 style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>Productos con más problemas</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th className="num">Problemas totales</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reputation.topProblemItems.map((p) => (
+                <tr key={p.itemId}>
+                  <td>
+                    {p.permalink ? (
+                      <a href={p.permalink} target="_blank" rel="noreferrer" style={{ color: "var(--series-1)", fontWeight: 600, textDecoration: "none" }}>
+                        {p.title} ↗
+                      </a>
+                    ) : (
+                      p.title
+                    )}
+                  </td>
+                  <td className="num">{p.claimsCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 14 }}>
-        Nota: reclamos, cancelaciones, envíos incorrectos, transacciones históricas y calificación de compradores son
-        datos reales de la API de reputación de MercadoLibre. Lo único que la API pública no expone es el desglose de
-        devoluciones por causa ni las publicaciones específicas con más problemas (eso vive solo en el panel interno
-        del vendedor).
+        Nota: reclamos, cancelaciones, envíos incorrectos, transacciones históricas, calificación de compradores y
+        "Productos con más problemas" son datos reales de la API de MercadoLibre. Lo único que la API pública no
+        expone es el desglose de devoluciones por causa específica (mismatch/talla/calidad) — eso solo vive en el
+        panel interno del vendedor.
       </p>
     </div>
   );

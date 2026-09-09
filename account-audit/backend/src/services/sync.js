@@ -11,12 +11,13 @@
 // - No expone devoluciones por causa (mismatch/talla/calidad) -> quedan en 0.
 
 import { db } from "../db/db.js";
-import { getMe, listItemIds, getItem, getItemVisitsTimeWindow, searchOrders, getSellerReputation } from "../ml/client.js";
+import { getMe, listItemIds, getItem, getItemVisitsTimeWindow, searchOrders, getSellerReputation, searchClaims } from "../ml/client.js";
 import { refreshAccessToken } from "../ml/oauth.js";
 
 const MAX_ITEMS = 200; // cota razonable para no colgar el sync en catálogos enormes
 const HISTORY_DAYS = 90;
 const MAX_ORDERS = 1000; // cota de seguridad al paginar órdenes
+const MAX_CLAIMS = 300; // cota de seguridad al paginar reclamos
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,6 +83,11 @@ const insertInventory = db.prepare(`INSERT INTO inventory (item_id, date, stock)
 
 const deleteSalesForItem = db.prepare(`DELETE FROM sales WHERE item_id = ?`);
 const insertSale = db.prepare(`INSERT INTO sales (item_id, date, units, revenue, orders) VALUES (?, ?, ?, ?, ?)`);
+
+const deleteItemClaims = db.prepare(`DELETE FROM item_claims WHERE item_id = ?`);
+const insertItemClaims = db.prepare(
+  `INSERT INTO item_claims (item_id, claims_count, updated_at) VALUES (?, ?, datetime('now'))`
+);
 
 const deleteReputationToday = db.prepare(`DELETE FROM reputation WHERE seller_id = ? AND date = ?`);
 const insertReputation = db.prepare(`
@@ -198,12 +204,14 @@ async function syncSellerReputation(sellerId, accessToken) {
   }
 }
 
+/** Sincroniza ventas por publicación y devuelve el mapa orden -> Set(item_id) para correlacionar reclamos. */
 async function syncSales(sellerId, itemIds, accessToken) {
   const itemIdSet = new Set(itemIds);
   const dateFrom = `${dateStr(HISTORY_DAYS - 1)}T00:00:00.000-00:00`;
   const dateTo = `${todayStr()}T23:59:59.999-00:00`;
 
   const perItemPerDate = new Map(); // item_id -> date -> { units, revenue, orders: Set }
+  const orderItemMap = new Map(); // order_id (string) -> Set(item_id)
 
   let offset = 0;
   const limit = 50;
@@ -226,6 +234,10 @@ async function syncSales(sellerId, itemIds, accessToken) {
           bucket.units += oi.quantity || 0;
           bucket.revenue += (oi.quantity || 0) * (oi.unit_price || 0);
           bucket.orders.add(order.id);
+
+          const orderKey = String(order.id);
+          if (!orderItemMap.has(orderKey)) orderItemMap.set(orderKey, new Set());
+          orderItemMap.get(orderKey).add(itemId);
         }
       }
       offset += limit;
@@ -242,6 +254,49 @@ async function syncSales(sellerId, itemIds, accessToken) {
     for (const [date, bucket] of perDate) {
       insertSale.run(itemId, date, bucket.units, Number(bucket.revenue.toFixed(2)), bucket.orders.size);
     }
+  }
+
+  return orderItemMap;
+}
+
+/**
+ * Trae los reclamos de la cuenta (API de post-venta) y los correlaciona con
+ * publicaciones a través de `orderItemMap` (orden -> publicaciones de esa
+ * orden, armado en syncSales). Es un fallo blando: si la API de reclamos no
+ * está habilitada para esta app o cambia de forma, simplemente no se
+ * completa `item_claims` y la sección de "Productos con más problemas" no
+ * se muestra — no rompe el resto del sync.
+ */
+async function syncClaimsByItem(sellerId, itemIds, accessToken, orderItemMap) {
+  const claimsByItem = new Map();
+  let offset = 0;
+  const limit = 50;
+  let total = Infinity;
+  try {
+    while (offset < total && offset < MAX_CLAIMS) {
+      const page = await searchClaims(accessToken, { limit, offset });
+      const results = Array.isArray(page.data) ? page.data : Array.isArray(page.results) ? page.results : [];
+      total = page.paging ? page.paging.total : results.length + offset;
+      for (const claim of results) {
+        const orderKey = String(claim.resource_id ?? claim.order_id ?? "");
+        const items = orderItemMap.get(orderKey);
+        if (!items) continue;
+        for (const itemId of items) {
+          claimsByItem.set(itemId, (claimsByItem.get(itemId) || 0) + 1);
+        }
+      }
+      offset += limit;
+      if (results.length === 0) break;
+    }
+  } catch (err) {
+    console.warn(`sync: no se pudieron traer reclamos de ${sellerId} (¿permiso no habilitado?): ${err.message}`);
+    return;
+  }
+
+  for (const itemId of itemIds) {
+    deleteItemClaims.run(itemId);
+    const count = claimsByItem.get(itemId);
+    if (count) insertItemClaims.run(itemId, count);
   }
 }
 
@@ -315,7 +370,8 @@ export async function syncSeller(sellerId) {
     await sleep(80); // evita ráfagas que disparen el rate limit de la API de MercadoLibre
   }
 
-  await syncSales(sellerId, syncedItemIds, accessToken);
+  const orderItemMap = await syncSales(sellerId, syncedItemIds, accessToken);
+  await syncClaimsByItem(sellerId, syncedItemIds, accessToken, orderItemMap);
   const powerSellerStatus = await syncSellerReputation(sellerId, accessToken);
   if (powerSellerStatus) {
     db.prepare(`UPDATE sellers SET reputation_tier = ? WHERE seller_id = ?`).run(powerSellerStatus, sellerId);

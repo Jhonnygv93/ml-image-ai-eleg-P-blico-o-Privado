@@ -367,14 +367,14 @@ td.num { font-variant-numeric: tabular-nums; }
 
 .reputation-metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 14px;
-  margin-top: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
 }
 .reputation-metric-card {
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 16px 18px;
   text-align: center;
   background: var(--surface-2);
 }

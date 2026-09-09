@@ -362,3 +362,17 @@ export function getSeller(sellerId) {
 export function listSellers() {
   return db.prepare(`SELECT * FROM sellers ORDER BY nickname`).all();
 }
+
+/** Publicaciones con más reclamos (API de post-venta de MercadoLibre). Vacío si no hay datos sincronizados. */
+export function topProblemItems(sellerId, limit = 5) {
+  return db
+    .prepare(
+      `SELECT i.item_id AS itemId, i.title, i.permalink, c.claims_count AS claimsCount
+       FROM item_claims c
+       JOIN items i ON i.item_id = c.item_id
+       WHERE i.seller_id = ? AND c.claims_count > 0
+       ORDER BY c.claims_count DESC
+       LIMIT ?`
+    )
+    .all(sellerId, limit);
+}
