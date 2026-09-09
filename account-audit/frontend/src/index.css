@@ -323,6 +323,35 @@ td.num { font-variant-numeric: tabular-nums; }
   padding: 12px;
 }
 
+.reputation-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 10px;
+}
+.reputation-card:hover { background: var(--surface-2); }
+.reputation-header { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.reputation-dot { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; }
+.reputation-stats { display: flex; gap: 24px; }
+.reputation-stat-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.reputation-stat-label { font-size: 12px; color: var(--text-secondary); }
+.reputation-link { font-size: 12.5px; font-weight: 600; color: var(--series-1); }
+
+.reputation-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.reputation-metric-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+}
+
 .loading, .error-box {
   padding: 40px;
   color: var(--text-secondary);

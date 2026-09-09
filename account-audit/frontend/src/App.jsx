@@ -53,6 +53,101 @@ function KpiGrid({ k30 }) {
   );
 }
 
+const REPUTATION_TIER = {
+  verde: { color: "var(--good)", label: "Verde" },
+  amarillo: { color: "var(--warning)", label: "Amarillo" },
+  rojo: { color: "var(--critical)", label: "Rojo" },
+  "sin-datos": { color: "var(--text-muted)", label: "Sin datos" },
+};
+
+function ReputationWidget({ reputation, expanded, onToggle }) {
+  const tier = REPUTATION_TIER[reputation.tier] || REPUTATION_TIER["sin-datos"];
+  const stats = [
+    ["Reclamos", reputation.claimsRate, "% de tus ventas del período con un reclamo abierto."],
+    ["Canceladas por ti", reputation.cancellationRate, "% de tus ventas que vos cancelaste."],
+    ["Envíos con demora", reputation.delayRate, "% de tus ventas despachadas fuera de plazo."],
+  ];
+  return (
+    <div className="reputation-card" onClick={onToggle} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onToggle()}>
+      <div className="reputation-header">
+        <span className="reputation-dot" style={{ background: tier.color }} />
+        <span style={{ fontWeight: 700, color: tier.color }}>{tier.label}</span>
+      </div>
+      <div className="reputation-stats">
+        {stats.map(([label, value, hint]) => (
+          <div className="reputation-stat" key={label} title={hint}>
+            <div className="reputation-stat-value">{value}%</div>
+            <div className="reputation-stat-label">{label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="reputation-link">{expanded ? "Ocultar detalle ▲" : "Ir a Reputación ▸"}</div>
+    </div>
+  );
+}
+
+function ReputationDetail({ reputation }) {
+  const tier = REPUTATION_TIER[reputation.tier] || REPUTATION_TIER["sin-datos"];
+  const cards = [
+    ["Reclamos", reputation.claims, reputation.claimsRate, reputation.claimsChangePct],
+    ["Canceladas por ti", reputation.cancellations, reputation.cancellationRate, reputation.cancellationsChangePct],
+    ["Envíos con demora", reputation.delays, reputation.delayRate, reputation.delaysChangePct],
+  ];
+  const reasons = [
+    ["Producto distinto al esperado", reputation.returnReasons.mismatchPct],
+    ["Talla/medidas incorrectas", reputation.returnReasons.sizePct],
+    ["Problema de calidad", reputation.returnReasons.qualityPct],
+  ];
+  return (
+    <div className="reputation-detail">
+      <div className="reputation-gauge">
+        <div className="bar-track">
+          <div className="bar-fill" style={{ width: "100%", background: tier.color }} />
+        </div>
+        <div style={{ marginTop: 6, fontSize: 13 }}>
+          Tenés color <strong style={{ color: tier.color }}>{tier.label}</strong> · medido sobre los últimos {reputation.windowDays} días · {reputation.orders} ventas en el período
+        </div>
+      </div>
+
+      <div className="reputation-metric-grid">
+        {cards.map(([label, count, rate, changePct]) => (
+          <div className="reputation-metric-card" key={label}>
+            <div className="kpi-label">{label}</div>
+            <div className="kpi-value">{rate}%</div>
+            <Delta value={changePct} />
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{count} de {reputation.orders} ventas</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <h4 style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 8px" }}>Motivos de devolución</h4>
+        {reputation.returns === 0 ? (
+          <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Sin devoluciones registradas en el período.</p>
+        ) : (
+          reasons.map(([label, pct]) => (
+            <div key={label} style={{ marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 3 }}>
+                <span>{label}</span>
+                <span className="num">{pct}%</span>
+              </div>
+              <div className="bar-track">
+                <div className="bar-fill" style={{ width: `${pct}%`, background: "var(--series-1)" }} />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <p style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 14 }}>
+        Nota: la API pública de MercadoLibre no expone el mismo detalle que el panel oficial del vendedor (por ejemplo,
+        no desglosa devoluciones por causa ni publicaciones con más problemas). Estos números se calculan con lo que
+        la API sí expone: reclamos, cancelaciones y demoras de despacho.
+      </p>
+    </div>
+  );
+}
+
 function ListingTypeBreakdown({ listingTypes }) {
   if (!listingTypes || listingTypes.total === 0) return null;
   const rows = [
@@ -201,10 +296,12 @@ function AskAccount({ sellerId }) {
 function Dashboard({ sellerId }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [reputationExpanded, setReputationExpanded] = useState(false);
 
   useEffect(() => {
     setData(null);
     setError(null);
+    setReputationExpanded(false);
     getDashboard(sellerId).then(setData).catch((err) => setError(err.message));
   }, [sellerId]);
 
@@ -244,6 +341,15 @@ function Dashboard({ sellerId }) {
       </section>
 
       <section className="panel">
+        <h3>Reputación</h3>
+        <ReputationWidget
+          reputation={data.reputation}
+          expanded={reputationExpanded}
+          onToggle={() => setReputationExpanded((v) => !v)}
+        />
+      </section>
+
+      <section className="panel">
         <h3>KPIs — últimos 30 días</h3>
         <KpiGrid k30={k30} />
       </section>
@@ -264,6 +370,13 @@ function Dashboard({ sellerId }) {
         <h3>Diagnóstico de publicaciones</h3>
         <ClassificationTable classification={data.classification} />
       </section>
+
+      {reputationExpanded && (
+        <section className="panel">
+          <h3>Detalle de reputación</h3>
+          <ReputationDetail reputation={data.reputation} />
+        </section>
+      )}
 
       <section className="panel">
         <h3>Plan de acción</h3>

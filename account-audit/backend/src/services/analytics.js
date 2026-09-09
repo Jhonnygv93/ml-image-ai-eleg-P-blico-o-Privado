@@ -228,6 +228,7 @@ export function reputationMetrics(sellerId, days = 30) {
     cancellations: curr.cancellations,
     cancellationsChangePct: pctChange(curr.cancellations, prev.cancellations),
     delays: curr.delays,
+    delaysChangePct: pctChange(curr.delays, prev.delays),
     returns: curr.returns,
     returnsChangePct: pctChange(curr.returns, prev.returns),
     reputationScore: curr.score ? Math.round(curr.score) : null,
@@ -236,6 +237,27 @@ export function reputationMetrics(sellerId, days = 30) {
       sizePct: Number(((curr.size / totalReturns) * 100).toFixed(1)),
       qualityPct: Number(((curr.quality / totalReturns) * 100).toFixed(1)),
     },
+  };
+}
+
+/**
+ * Reputación con tasas sobre el volumen de ventas (como el panel de MercadoLibre) y un
+ * "tier" de color (verde/amarillo/rojo) según el reputationScore calculado.
+ */
+export function reputationDetail(sellerId, days = 30) {
+  const base = reputationMetrics(sellerId, days);
+  const { orders } = accountKpis(sellerId, days);
+  const rate = (n) => (orders > 0 ? Number(((n / orders) * 100).toFixed(2)) : 0);
+  const score = base.reputationScore;
+  const tier = score == null ? "sin-datos" : score >= 90 ? "verde" : score >= 60 ? "amarillo" : "rojo";
+
+  return {
+    ...base,
+    orders,
+    claimsRate: rate(base.claims),
+    cancellationRate: rate(base.cancellations),
+    delayRate: rate(base.delays),
+    tier,
   };
 }
 

@@ -3,7 +3,7 @@
 // consumen el dashboard, el PDF y la capa de IA — así los tres siempre
 // muestran exactamente los mismos números.
 
-import { accountKpisAllWindows, revenueConcentration, reputationMetrics, listingTypeBreakdown, getSeller, listSellers } from "./analytics.js";
+import { accountKpisAllWindows, revenueConcentration, reputationDetail, listingTypeBreakdown, getSeller, listSellers } from "./analytics.js";
 import { runFullDiagnosis } from "./rules.js";
 import { computeScores } from "./scoring.js";
 import { buildActionPlan } from "./priorities.js";
@@ -17,7 +17,7 @@ export function getFullDiagnosis(sellerId) {
   const { findings, classification } = runFullDiagnosis(sellerId);
   const plan = buildActionPlan(findings);
   const concentration = revenueConcentration(sellerId, 30);
-  const reputation = reputationMetrics(sellerId, 30);
+  const reputation = reputationDetail(sellerId, 30);
   const listingTypes = listingTypeBreakdown(sellerId);
 
   const problems = plan.ranked.filter((f) => f.type === "problema" || f.type === "riesgo").slice(0, 5);
