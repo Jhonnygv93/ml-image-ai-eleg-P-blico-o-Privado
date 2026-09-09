@@ -33,6 +33,13 @@ for (const [column, ddl] of [
   ["claims_rate", "ALTER TABLE reputation ADD COLUMN claims_rate REAL"],
   ["cancellations_rate", "ALTER TABLE reputation ADD COLUMN cancellations_rate REAL"],
   ["delays_rate", "ALTER TABLE reputation ADD COLUMN delays_rate REAL"],
+  ["transactions_total", "ALTER TABLE reputation ADD COLUMN transactions_total INTEGER"],
+  ["transactions_completed", "ALTER TABLE reputation ADD COLUMN transactions_completed INTEGER"],
+  ["transactions_canceled", "ALTER TABLE reputation ADD COLUMN transactions_canceled INTEGER"],
+  ["ratings_positive_pct", "ALTER TABLE reputation ADD COLUMN ratings_positive_pct REAL"],
+  ["ratings_negative_pct", "ALTER TABLE reputation ADD COLUMN ratings_negative_pct REAL"],
+  ["ratings_neutral_pct", "ALTER TABLE reputation ADD COLUMN ratings_neutral_pct REAL"],
+  ["sales_completed_60d", "ALTER TABLE reputation ADD COLUMN sales_completed_60d INTEGER"],
 ]) {
   if (!reputationColumns.includes(column)) db.exec(ddl);
 }

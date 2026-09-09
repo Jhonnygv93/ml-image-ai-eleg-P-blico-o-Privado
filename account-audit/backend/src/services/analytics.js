@@ -256,7 +256,12 @@ export function reputationDetail(sellerId, days = 30) {
   // metodología (ventana de hasta 365 días) — lo usamos tal cual en vez de recalcularlo
   // nosotros con la ventana corta de `days`, que da porcentajes irreales con pocas ventas.
   const latestRates = db
-    .prepare(`SELECT claims_rate, cancellations_rate, delays_rate FROM reputation WHERE seller_id = ? ORDER BY date DESC LIMIT 1`)
+    .prepare(
+      `SELECT claims_rate, cancellations_rate, delays_rate,
+              transactions_total, transactions_completed, transactions_canceled,
+              ratings_positive_pct, ratings_negative_pct, ratings_neutral_pct, sales_completed_60d
+       FROM reputation WHERE seller_id = ? ORDER BY date DESC LIMIT 1`
+    )
     .get(sellerId);
 
   return {
@@ -267,6 +272,13 @@ export function reputationDetail(sellerId, days = 30) {
     claimsRate: latestRates?.claims_rate ?? rate(base.claims),
     cancellationRate: latestRates?.cancellations_rate ?? rate(base.cancellations),
     delayRate: latestRates?.delays_rate ?? rate(base.delays),
+    transactionsTotal: latestRates?.transactions_total ?? null,
+    transactionsCompleted: latestRates?.transactions_completed ?? null,
+    transactionsCanceled: latestRates?.transactions_canceled ?? null,
+    ratingsPositivePct: latestRates?.ratings_positive_pct ?? null,
+    ratingsNegativePct: latestRates?.ratings_negative_pct ?? null,
+    ratingsNeutralPct: latestRates?.ratings_neutral_pct ?? null,
+    salesCompleted60d: latestRates?.sales_completed_60d ?? null,
     tier,
   };
 }

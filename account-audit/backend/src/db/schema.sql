@@ -84,7 +84,14 @@ CREATE TABLE IF NOT EXISTS reputation (
   reputation_score INTEGER,
   claims_rate        REAL,  -- % ya calculado por MercadoLibre (metrics.claims.rate), no recalculado
   cancellations_rate REAL,
-  delays_rate        REAL
+  delays_rate        REAL,
+  transactions_total     INTEGER,  -- seller_reputation.transactions (histórico de la cuenta)
+  transactions_completed INTEGER,
+  transactions_canceled  INTEGER,
+  ratings_positive_pct REAL,       -- seller_reputation.transactions.ratings, ya en %
+  ratings_negative_pct REAL,
+  ratings_neutral_pct  REAL,
+  sales_completed_60d  INTEGER     -- seller_reputation.metrics.sales.completed
 );
 CREATE INDEX IF NOT EXISTS idx_reputation_seller_date ON reputation(seller_id, date);
 

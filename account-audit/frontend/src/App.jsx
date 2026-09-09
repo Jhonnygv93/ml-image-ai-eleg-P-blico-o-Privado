@@ -109,6 +109,46 @@ function ReputationDetail({ reputation }) {
         </div>
       </div>
 
+      {reputation.transactionsTotal != null && (
+        <div style={{ marginTop: 16 }}>
+          <h4 style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>Historial de transacciones</h4>
+          <div className="reputation-metric-grid">
+            <div className="reputation-metric-card">
+              <div className="kpi-label">Transacciones totales</div>
+              <div className="kpi-value">{reputation.transactionsTotal}</div>
+            </div>
+            <div className="reputation-metric-card">
+              <div className="kpi-label">Completadas</div>
+              <div className="kpi-value">{reputation.transactionsCompleted}</div>
+            </div>
+            <div className="reputation-metric-card">
+              <div className="kpi-label">Canceladas</div>
+              <div className="kpi-value">{reputation.transactionsCanceled}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reputation.ratingsPositivePct != null && (
+        <div style={{ marginTop: 16 }}>
+          <h4 style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>Así te ven tus compradores</h4>
+          <div className="reputation-metric-grid">
+            <div className="reputation-metric-card">
+              <div className="kpi-label">Positivas</div>
+              <div className="kpi-value" style={{ color: "var(--good)" }}>{reputation.ratingsPositivePct}%</div>
+            </div>
+            <div className="reputation-metric-card">
+              <div className="kpi-label">Neutras</div>
+              <div className="kpi-value" style={{ color: "var(--warning)" }}>{reputation.ratingsNeutralPct}%</div>
+            </div>
+            <div className="reputation-metric-card">
+              <div className="kpi-label">Negativas</div>
+              <div className="kpi-value" style={{ color: "var(--critical)" }}>{reputation.ratingsNegativePct}%</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="reputation-metric-grid">
         {cards.map(([label, count, rate, changePct]) => (
           <div className="reputation-metric-card" key={label}>
@@ -158,10 +198,11 @@ function ReputationDetail({ reputation }) {
         )}
       </div>
 
-      <p style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 14 }}>
-        Nota: la API pública de MercadoLibre no expone el mismo detalle que el panel oficial del vendedor (por ejemplo,
-        no desglosa devoluciones por causa ni publicaciones con más problemas). Estos números se calculan con lo que
-        la API sí expone: reclamos, cancelaciones y demoras de despacho.
+      <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 14 }}>
+        Nota: reclamos, cancelaciones, envíos incorrectos, transacciones históricas y calificación de compradores son
+        datos reales de la API de reputación de MercadoLibre. Lo único que la API pública no expone es el desglose de
+        devoluciones por causa ni las publicaciones específicas con más problemas (eso vive solo en el panel interno
+        del vendedor).
       </p>
     </div>
   );
@@ -474,7 +515,7 @@ function Dashboard({ sellerId }) {
         <CategoryScores categories={data.scores.categories} />
       </section>
 
-      <section className="panel">
+      <section className="panel panel-centered">
         <h3>Reputación</h3>
         <ReputationWidget
           reputation={data.reputation}

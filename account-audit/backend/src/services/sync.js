@@ -85,8 +85,18 @@ const insertSale = db.prepare(`INSERT INTO sales (item_id, date, units, revenue,
 
 const deleteReputationToday = db.prepare(`DELETE FROM reputation WHERE seller_id = ? AND date = ?`);
 const insertReputation = db.prepare(`
-  INSERT INTO reputation (seller_id, date, claims, cancellations, delays, returns, return_reason_mismatch, return_reason_size, return_reason_quality, reputation_score, claims_rate, cancellations_rate, delays_rate)
-  VALUES (@seller_id, @date, @claims, @cancellations, @delays, @returns, @return_reason_mismatch, @return_reason_size, @return_reason_quality, @reputation_score, @claims_rate, @cancellations_rate, @delays_rate)
+  INSERT INTO reputation (
+    seller_id, date, claims, cancellations, delays, returns, return_reason_mismatch, return_reason_size, return_reason_quality,
+    reputation_score, claims_rate, cancellations_rate, delays_rate,
+    transactions_total, transactions_completed, transactions_canceled,
+    ratings_positive_pct, ratings_negative_pct, ratings_neutral_pct, sales_completed_60d
+  )
+  VALUES (
+    @seller_id, @date, @claims, @cancellations, @delays, @returns, @return_reason_mismatch, @return_reason_size, @return_reason_quality,
+    @reputation_score, @claims_rate, @cancellations_rate, @delays_rate,
+    @transactions_total, @transactions_completed, @transactions_canceled,
+    @ratings_positive_pct, @ratings_negative_pct, @ratings_neutral_pct, @sales_completed_60d
+  )
 `);
 
 function mapHasFull(item) {
@@ -151,6 +161,12 @@ async function syncSellerReputation(sellerId, accessToken) {
     const levelNumber = Number(String(rep.level_id || "").match(/\d/)?.[0]);
     const reputationScore = levelScores[levelNumber] ?? null;
 
+    // Histórico de transacciones y calificación de compradores (seller_reputation.transactions),
+    // y ventas medidas en la ventana de 60 días que usa MercadoLibre (metrics.sales).
+    const tx = rep.transactions || {};
+    const ratings = tx.ratings || {};
+    const pct = (v) => (typeof v === "number" ? Number((v * 100).toFixed(1)) : null);
+
     const date = todayStr();
     deleteReputationToday.run(sellerId, date);
     insertReputation.run({
@@ -167,6 +183,13 @@ async function syncSellerReputation(sellerId, accessToken) {
       claims_rate: claimsRate,
       cancellations_rate: cancellationsRate,
       delays_rate: delaysRate,
+      transactions_total: tx.total ?? null,
+      transactions_completed: tx.completed ?? null,
+      transactions_canceled: tx.canceled ?? null,
+      ratings_positive_pct: pct(ratings.positive),
+      ratings_negative_pct: pct(ratings.negative),
+      ratings_neutral_pct: pct(ratings.neutral),
+      sales_completed_60d: metrics.sales ? metrics.sales.completed ?? null : null,
     });
     return rep.power_seller_status || null;
   } catch (err) {
