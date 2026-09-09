@@ -272,15 +272,19 @@ async function syncClaimsByItem(sellerId, itemIds, accessToken, orderItemMap) {
   let offset = 0;
   const limit = 50;
   let total = Infinity;
+  let claimsSeen = 0;
+  let claimsMatched = 0;
   try {
     while (offset < total && offset < MAX_CLAIMS) {
       const page = await searchClaims(accessToken, { limit, offset });
       const results = Array.isArray(page.data) ? page.data : Array.isArray(page.results) ? page.results : [];
       total = page.paging ? page.paging.total : results.length + offset;
       for (const claim of results) {
+        claimsSeen += 1;
         const orderKey = String(claim.resource_id ?? claim.order_id ?? "");
         const items = orderItemMap.get(orderKey);
         if (!items) continue;
+        claimsMatched += 1;
         for (const itemId of items) {
           claimsByItem.set(itemId, (claimsByItem.get(itemId) || 0) + 1);
         }
@@ -298,6 +302,9 @@ async function syncClaimsByItem(sellerId, itemIds, accessToken, orderItemMap) {
     const count = claimsByItem.get(itemId);
     if (count) insertItemClaims.run(itemId, count);
   }
+  console.log(
+    `sync: reclamos de ${sellerId} — ${claimsSeen} recibidos de la API, ${claimsMatched} correlacionados con órdenes de los últimos ${HISTORY_DAYS} días, ${claimsByItem.size} publicaciones afectadas.`
+  );
 }
 
 /**
