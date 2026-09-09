@@ -121,6 +121,25 @@ function ReputationDetail({ reputation }) {
       </div>
 
       <div style={{ marginTop: 16 }}>
+        <h4 style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 8px" }}>Tu desempeño</h4>
+        <div className="reputation-metric-grid">
+          <div className="reputation-metric-card">
+            <div className="kpi-label">Facturado</div>
+            <div className="kpi-value">{money(reputation.revenue)}</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>en ventas del período</div>
+          </div>
+          <div className="reputation-metric-card">
+            <div className="kpi-label">Ventas concretadas</div>
+            <div className="kpi-value">{reputation.orders}</div>
+          </div>
+          <div className="reputation-metric-card">
+            <div className="kpi-label">Sin reclamos</div>
+            <div className="kpi-value">{reputation.salesWithoutClaims}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
         <h4 style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 8px" }}>Motivos de devolución</h4>
         {reputation.returns === 0 ? (
           <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Sin devoluciones registradas en el período.</p>

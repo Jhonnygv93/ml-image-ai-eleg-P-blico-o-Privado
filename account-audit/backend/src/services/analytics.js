@@ -246,8 +246,9 @@ export function reputationMetrics(sellerId, days = 30) {
  */
 export function reputationDetail(sellerId, days = 30) {
   const base = reputationMetrics(sellerId, days);
-  const { orders } = accountKpis(sellerId, days);
+  const { orders, revenue } = accountKpis(sellerId, days);
   const rate = (n) => (orders > 0 ? Number(((n / orders) * 100).toFixed(2)) : 0);
+  const salesWithoutClaims = Math.max(0, orders - base.claims);
   const score = base.reputationScore;
   const tier = score == null ? "sin-datos" : score >= 90 ? "verde" : score >= 60 ? "amarillo" : "rojo";
 
@@ -261,6 +262,8 @@ export function reputationDetail(sellerId, days = 30) {
   return {
     ...base,
     orders,
+    revenue,
+    salesWithoutClaims,
     claimsRate: latestRates?.claims_rate ?? rate(base.claims),
     cancellationRate: latestRates?.cancellations_rate ?? rate(base.cancellations),
     delayRate: latestRates?.delays_rate ?? rate(base.delays),
