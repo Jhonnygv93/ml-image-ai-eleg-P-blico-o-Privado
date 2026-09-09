@@ -249,15 +249,15 @@ function Dashboard({ sellerId }) {
       </section>
 
       <section className="panel">
+        <h3>Tipo de publicación</h3>
+        <ListingTypeBreakdown listingTypes={data.listingTypes} />
+      </section>
+
+      <section className="panel">
         <div className="two-col">
           <FindingsColumn title={`Problemas críticos (${data.topProblems.length})`} findings={data.topProblems} tone="problema" />
           <FindingsColumn title={`Oportunidades (${data.topOpportunities.length})`} findings={data.topOpportunities} tone="oportunidad" />
         </div>
-      </section>
-
-      <section className="panel">
-        <h3>Tipo de publicación</h3>
-        <ListingTypeBreakdown listingTypes={data.listingTypes} />
       </section>
 
       <section className="panel">
