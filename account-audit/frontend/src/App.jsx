@@ -366,6 +366,7 @@ function Dashboard({ sellerId }) {
           expanded={reputationExpanded}
           onToggle={() => setReputationExpanded((v) => !v)}
         />
+        {reputationExpanded && <ReputationDetail reputation={data.reputation} />}
       </section>
 
       <section className="panel">
@@ -389,13 +390,6 @@ function Dashboard({ sellerId }) {
         <h3>Diagnóstico de publicaciones</h3>
         <ClassificationTable classification={data.classification} />
       </section>
-
-      {reputationExpanded && (
-        <section className="panel">
-          <h3>Detalle de reputación</h3>
-          <ReputationDetail reputation={data.reputation} />
-        </section>
-      )}
 
       <section className="panel">
         <h3>Plan de acción</h3>
