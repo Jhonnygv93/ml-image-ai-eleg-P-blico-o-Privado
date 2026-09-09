@@ -308,17 +308,25 @@ export function listSellerItems(sellerId) {
  *   publicación multi-variación más nuevo de MercadoLibre ("user product").
  * - "Tradicional": el resto (item_id clásico "<SITE>...", sin catálogo).
  */
+export function classifyListing(item, siteId) {
+  const userProductPrefix = `${siteId || "MLC"}U`;
+  if (item.catalog) return "catalogo";
+  if (item.item_id.startsWith(userProductPrefix)) return "producto_usuario";
+  return "tradicional";
+}
+
 export function listingTypeBreakdown(sellerId) {
   const seller = db.prepare(`SELECT site_id FROM sellers WHERE seller_id = ?`).get(sellerId);
-  const userProductPrefix = `${seller?.site_id || "MLC"}U`;
+  const siteId = seller?.site_id || "MLC";
   const items = db.prepare(`SELECT item_id, catalog FROM items WHERE seller_id = ? AND status = 'active'`).all(sellerId);
 
   let catalogCount = 0;
   let userProductCount = 0;
   let traditionalCount = 0;
   for (const it of items) {
-    if (it.catalog) catalogCount += 1;
-    else if (it.item_id.startsWith(userProductPrefix)) userProductCount += 1;
+    const type = classifyListing(it, siteId);
+    if (type === "catalogo") catalogCount += 1;
+    else if (type === "producto_usuario") userProductCount += 1;
     else traditionalCount += 1;
   }
 

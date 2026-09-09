@@ -10,6 +10,8 @@ import {
   adsMetrics,
   reputationMetrics,
   listSellerItems,
+  classifyListing,
+  getSeller,
 } from "./analytics.js";
 
 let _idCounter = 0;
@@ -133,6 +135,7 @@ function classifyItem(visitsLevel, conversionLevel, salesLevel) {
 
 export function evaluateItemRules(sellerId, days = 14) {
   const items = listSellerItems(sellerId);
+  const seller = getSeller(sellerId);
   const metricsByItem = Object.fromEntries(items.map((it) => [it.item_id, itemMetrics(it.item_id, days)]));
   const all = Object.values(metricsByItem);
 
@@ -161,6 +164,10 @@ export function evaluateItemRules(sellerId, days = 14) {
       conversionNivel: conversionLevel,
       ventas: m.units,
       ventasNivel: salesLevel,
+      precio: item.price,
+      permalink: item.permalink || null,
+      listingType: classifyListing(item, seller?.site_id),
+      variationsCount: item.variations_count || 0,
     });
 
     // Muchas visitas + pocas ventas -> problema de conversión de la publicación

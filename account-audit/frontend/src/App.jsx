@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { listSellers, getDashboard, askAccount, reportUrl } from "./api.js";
 
 const money = (v) => `$${Math.round(v).toLocaleString("es-CL")}`;
@@ -215,33 +215,97 @@ const TYPE_BADGE = {
   "🟦 Regular": "badge-muted",
 };
 
+const LISTING_TYPE_LABEL = {
+  catalogo: "Catálogo",
+  tradicional: "Tradicional",
+  producto_usuario: "Producto de usuario",
+};
+const LISTING_TYPE_BADGE = {
+  catalogo: "badge-series1",
+  tradicional: "badge-muted",
+  producto_usuario: "badge-warning",
+};
+
 function ClassificationTable({ classification }) {
+  const [expandedId, setExpandedId] = useState(null);
+
   return (
     <div style={{ overflowX: "auto" }}>
       <table>
         <thead>
           <tr>
-            <th>Tipo</th>
+            <th>Clasificación</th>
             <th>Publicación</th>
             <th>Visitas (14d)</th>
             <th>Conversión</th>
             <th>Ventas</th>
             <th>Acción</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {classification.map((c) => (
-            <tr key={c.itemId}>
-              <td>
-                <span className={`badge ${TYPE_BADGE[c.tipo] || "badge-muted"}`}>{c.tipo}</span>
-              </td>
-              <td>{c.title}</td>
-              <td className="num">{c.visitas}</td>
-              <td className="num">{c.conversion}%</td>
-              <td className="num">{c.ventas}u</td>
-              <td>{c.accion}</td>
-            </tr>
-          ))}
+          {classification.map((c) => {
+            const isOpen = expandedId === c.itemId;
+            return (
+              <Fragment key={c.itemId}>
+                <tr onClick={() => setExpandedId(isOpen ? null : c.itemId)} style={{ cursor: "pointer" }}>
+                  <td>
+                    <span className={`badge ${TYPE_BADGE[c.tipo] || "badge-muted"}`}>{c.tipo}</span>
+                  </td>
+                  <td>
+                    {c.permalink ? (
+                      <a
+                        href={c.permalink}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ color: "var(--series-1)", fontWeight: 600, textDecoration: "none" }}
+                      >
+                        {c.title} ↗
+                      </a>
+                    ) : (
+                      c.title
+                    )}
+                  </td>
+                  <td className="num">{c.visitas}</td>
+                  <td className="num">{c.conversion}%</td>
+                  <td className="num">{c.ventas}u</td>
+                  <td>{c.accion}</td>
+                  <td style={{ color: "var(--text-muted)" }}>{isOpen ? "▲" : "▼"}</td>
+                </tr>
+                {isOpen && (
+                  <tr>
+                    <td colSpan={7} style={{ background: "var(--surface-2)" }}>
+                      <div style={{ display: "flex", gap: 28, flexWrap: "wrap", padding: "10px 4px", fontSize: 12.5 }}>
+                        <div>
+                          <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Tipo de publicación</div>
+                          <span className={`badge ${LISTING_TYPE_BADGE[c.listingType] || "badge-muted"}`}>
+                            {LISTING_TYPE_LABEL[c.listingType] || "—"}
+                          </span>
+                        </div>
+                        <div>
+                          <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Variantes</div>
+                          <strong>{c.variationsCount > 0 ? `${c.variationsCount} variantes` : "Sin variantes"}</strong>
+                        </div>
+                        <div>
+                          <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Precio</div>
+                          <strong>{money(c.precio)}</strong>
+                        </div>
+                        {c.permalink && (
+                          <div>
+                            <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>&nbsp;</div>
+                            <a href={c.permalink} target="_blank" rel="noreferrer" className="btn" style={{ padding: "4px 10px", fontSize: 12 }}>
+                              Ver en MercadoLibre ↗
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

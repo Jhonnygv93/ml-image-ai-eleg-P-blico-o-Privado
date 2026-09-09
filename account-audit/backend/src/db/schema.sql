@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS items (
   free_shipping INTEGER DEFAULT 0,
   photos_count INTEGER DEFAULT 0,
   catalog      INTEGER DEFAULT 0,
+  permalink    TEXT,                 -- URL pública de la publicación en MercadoLibre
+  variations_count INTEGER DEFAULT 0,
   created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

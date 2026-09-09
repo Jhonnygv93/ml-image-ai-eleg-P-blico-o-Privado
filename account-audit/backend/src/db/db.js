@@ -36,3 +36,11 @@ for (const [column, ddl] of [
 ]) {
   if (!reputationColumns.includes(column)) db.exec(ddl);
 }
+
+const itemColumns = db.prepare("PRAGMA table_info(items)").all().map((c) => c.name);
+for (const [column, ddl] of [
+  ["permalink", "ALTER TABLE items ADD COLUMN permalink TEXT"],
+  ["variations_count", "ALTER TABLE items ADD COLUMN variations_count INTEGER DEFAULT 0"],
+]) {
+  if (!itemColumns.includes(column)) db.exec(ddl);
+}

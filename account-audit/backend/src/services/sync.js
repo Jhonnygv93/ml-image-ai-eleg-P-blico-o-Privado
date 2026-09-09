@@ -41,8 +41,8 @@ const upsertSellerBasic = db.prepare(`
 `);
 
 const upsertItem = db.prepare(`
-  INSERT INTO items (item_id, seller_id, title, category, price, base_cost, status, has_full, free_shipping, photos_count, catalog)
-  VALUES (@item_id, @seller_id, @title, @category, @price, @base_cost, @status, @has_full, @free_shipping, @photos_count, @catalog)
+  INSERT INTO items (item_id, seller_id, title, category, price, base_cost, status, has_full, free_shipping, photos_count, catalog, permalink, variations_count)
+  VALUES (@item_id, @seller_id, @title, @category, @price, @base_cost, @status, @has_full, @free_shipping, @photos_count, @catalog, @permalink, @variations_count)
   ON CONFLICT(item_id) DO UPDATE SET
     title = excluded.title,
     category = excluded.category,
@@ -51,7 +51,9 @@ const upsertItem = db.prepare(`
     has_full = excluded.has_full,
     free_shipping = excluded.free_shipping,
     photos_count = excluded.photos_count,
-    catalog = excluded.catalog
+    catalog = excluded.catalog,
+    permalink = excluded.permalink,
+    variations_count = excluded.variations_count
 `);
 
 const deleteVisits = db.prepare(`DELETE FROM visits WHERE item_id = ?`);
@@ -256,6 +258,8 @@ export async function syncSeller(sellerId) {
         free_shipping: item.shipping && item.shipping.free_shipping ? 1 : 0,
         photos_count: Array.isArray(item.pictures) ? item.pictures.length : 0,
         catalog: item.catalog_listing ? 1 : 0,
+        permalink: item.permalink || null,
+        variations_count: Array.isArray(item.variations) ? item.variations.length : 0,
       });
 
       const today = todayStr();
