@@ -53,6 +53,28 @@ function KpiGrid({ k30 }) {
   );
 }
 
+function CatalogBreakdown({ catalog }) {
+  if (!catalog || catalog.total === 0) return null;
+  return (
+    <div className="kpi-grid">
+      <div className="kpi-tile">
+        <div className="kpi-label">Publicaciones de catálogo</div>
+        <div className="kpi-value">{catalog.catalogCount}</div>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{catalog.catalogPct}% del total</span>
+      </div>
+      <div className="kpi-tile">
+        <div className="kpi-label">Publicaciones propias (sin catálogo)</div>
+        <div className="kpi-value">{catalog.ownCount}</div>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{(100 - catalog.catalogPct).toFixed(1)}% del total</span>
+      </div>
+      <div className="kpi-tile">
+        <div className="kpi-label">Total activas</div>
+        <div className="kpi-value">{catalog.total}</div>
+      </div>
+    </div>
+  );
+}
+
 function FindingsColumn({ title, findings, tone }) {
   return (
     <div>
@@ -229,6 +251,11 @@ function Dashboard({ sellerId }) {
           <FindingsColumn title={`Problemas críticos (${data.topProblems.length})`} findings={data.topProblems} tone="problema" />
           <FindingsColumn title={`Oportunidades (${data.topOpportunities.length})`} findings={data.topOpportunities} tone="oportunidad" />
         </div>
+      </section>
+
+      <section className="panel">
+        <h3>Catálogo vs. publicaciones propias</h3>
+        <CatalogBreakdown catalog={data.catalog} />
       </section>
 
       <section className="panel">

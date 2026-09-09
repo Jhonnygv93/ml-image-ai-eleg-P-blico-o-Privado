@@ -269,6 +269,26 @@ export function listSellerItems(sellerId) {
   return db.prepare(`SELECT * FROM items WHERE seller_id = ?`).all(sellerId);
 }
 
+/** Cuántas publicaciones activas son de catálogo (compiten en un buybox) vs. propias del vendedor. */
+export function catalogBreakdown(sellerId) {
+  const row = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN catalog = 1 THEN 1 ELSE 0 END) AS catalogCount,
+         SUM(CASE WHEN catalog = 0 THEN 1 ELSE 0 END) AS ownCount,
+         COUNT(*) AS total
+       FROM items WHERE seller_id = ? AND status = 'active'`
+    )
+    .get(sellerId);
+  const total = row.total || 0;
+  return {
+    catalogCount: row.catalogCount || 0,
+    ownCount: row.ownCount || 0,
+    total,
+    catalogPct: total > 0 ? Number(((row.catalogCount / total) * 100).toFixed(1)) : 0,
+  };
+}
+
 export function getSeller(sellerId) {
   return db.prepare(`SELECT * FROM sellers WHERE seller_id = ?`).get(sellerId);
 }
