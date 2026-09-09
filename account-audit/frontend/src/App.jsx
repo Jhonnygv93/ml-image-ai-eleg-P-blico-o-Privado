@@ -81,7 +81,7 @@ function ReputationWidget({ reputation, expanded, onToggle }) {
           </div>
         ))}
       </div>
-      <div className="reputation-link">{expanded ? "Ocultar detalle ▲" : "Ir a Reputación ▸"}</div>
+      <div className="detail-toggle">{expanded ? "Ocultar detalle ▲" : "Ver detalle ▸"}</div>
     </div>
   );
 }
@@ -341,9 +341,7 @@ function ClassificationPanel({ classification }) {
             </span>
           ))}
         </div>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--series-1)" }}>
-          {expanded ? "Ocultar detalle ▲" : "Ir a detalle ▸"}
-        </span>
+        <span className="detail-toggle">{expanded ? "Ocultar detalle ▲" : "Ver detalle ▸"}</span>
       </div>
 
       {expanded && (
