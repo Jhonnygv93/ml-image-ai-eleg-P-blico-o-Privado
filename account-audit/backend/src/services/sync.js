@@ -276,7 +276,7 @@ async function syncClaimsByItem(sellerId, itemIds, accessToken, orderItemMap) {
   let claimsMatched = 0;
   try {
     while (offset < total && offset < MAX_CLAIMS) {
-      const page = await searchClaims(accessToken, { limit, offset });
+      const page = await searchClaims(accessToken, sellerId, { limit, offset });
       const results = Array.isArray(page.data) ? page.data : Array.isArray(page.results) ? page.results : [];
       total = page.paging ? page.paging.total : results.length + offset;
       for (const claim of results) {
