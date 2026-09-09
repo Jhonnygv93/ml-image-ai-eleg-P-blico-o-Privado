@@ -65,8 +65,8 @@ const insertSale = db.prepare(`INSERT INTO sales (item_id, date, units, revenue,
 
 const deleteReputationToday = db.prepare(`DELETE FROM reputation WHERE seller_id = ? AND date = ?`);
 const insertReputation = db.prepare(`
-  INSERT INTO reputation (seller_id, date, claims, cancellations, delays, returns, return_reason_mismatch, return_reason_size, return_reason_quality, reputation_score)
-  VALUES (@seller_id, @date, @claims, @cancellations, @delays, @returns, @return_reason_mismatch, @return_reason_size, @return_reason_quality, @reputation_score)
+  INSERT INTO reputation (seller_id, date, claims, cancellations, delays, returns, return_reason_mismatch, return_reason_size, return_reason_quality, reputation_score, claims_rate, cancellations_rate, delays_rate)
+  VALUES (@seller_id, @date, @claims, @cancellations, @delays, @returns, @return_reason_mismatch, @return_reason_size, @return_reason_quality, @reputation_score, @claims_rate, @cancellations_rate, @delays_rate)
 `);
 
 function mapHasFull(item) {
@@ -117,6 +117,14 @@ async function syncSellerReputation(sellerId, accessToken) {
     const cancellations = metrics.cancellations ? Math.round(metrics.cancellations.value || 0) : 0;
     const delays = metrics.delayed_handling_time ? Math.round(metrics.delayed_handling_time.value || 0) : 0;
 
+    // MercadoLibre ya calcula estas tasas sobre su propia ventana de medición
+    // (hasta 365 días, con su propia metodología) — usamos ese % directamente
+    // en vez de recalcularlo nosotros con datos incompletos.
+    const toPct = (m) => (m && typeof m.rate === "number" ? Number((m.rate * 100).toFixed(2)) : null);
+    const claimsRate = toPct(metrics.claims);
+    const cancellationsRate = toPct(metrics.cancellations);
+    const delaysRate = toPct(metrics.delayed_handling_time);
+
     // La API pública no desglosa devoluciones por causa (mismatch/talla/calidad):
     // ese dato vive en el panel interno del seller, no en este endpoint.
     const levelScores = { 5: 98, 4: 90, 3: 78, 2: 60, 1: 40 };
@@ -136,6 +144,9 @@ async function syncSellerReputation(sellerId, accessToken) {
       return_reason_size: 0,
       return_reason_quality: 0,
       reputation_score: reputationScore,
+      claims_rate: claimsRate,
+      cancellations_rate: cancellationsRate,
+      delays_rate: delaysRate,
     });
     return rep.power_seller_status || null;
   } catch (err) {

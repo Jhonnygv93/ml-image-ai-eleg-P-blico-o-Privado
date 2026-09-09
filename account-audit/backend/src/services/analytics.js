@@ -251,12 +251,19 @@ export function reputationDetail(sellerId, days = 30) {
   const score = base.reputationScore;
   const tier = score == null ? "sin-datos" : score >= 90 ? "verde" : score >= 60 ? "amarillo" : "rojo";
 
+  // Si sincronizamos una cuenta real, MercadoLibre ya nos da el % calculado con su propia
+  // metodología (ventana de hasta 365 días) — lo usamos tal cual en vez de recalcularlo
+  // nosotros con la ventana corta de `days`, que da porcentajes irreales con pocas ventas.
+  const latestRates = db
+    .prepare(`SELECT claims_rate, cancellations_rate, delays_rate FROM reputation WHERE seller_id = ? ORDER BY date DESC LIMIT 1`)
+    .get(sellerId);
+
   return {
     ...base,
     orders,
-    claimsRate: rate(base.claims),
-    cancellationRate: rate(base.cancellations),
-    delayRate: rate(base.delays),
+    claimsRate: latestRates?.claims_rate ?? rate(base.claims),
+    cancellationRate: latestRates?.cancellations_rate ?? rate(base.cancellations),
+    delayRate: latestRates?.delays_rate ?? rate(base.delays),
     tier,
   };
 }

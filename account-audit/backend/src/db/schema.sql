@@ -79,7 +79,10 @@ CREATE TABLE IF NOT EXISTS reputation (
   return_reason_mismatch INTEGER NOT NULL DEFAULT 0, -- "producto distinto a expectativa"
   return_reason_size      INTEGER NOT NULL DEFAULT 0,
   return_reason_quality    INTEGER NOT NULL DEFAULT 0,
-  reputation_score INTEGER
+  reputation_score INTEGER,
+  claims_rate        REAL,  -- % ya calculado por MercadoLibre (metrics.claims.rate), no recalculado
+  cancellations_rate REAL,
+  delays_rate        REAL
 );
 CREATE INDEX IF NOT EXISTS idx_reputation_seller_date ON reputation(seller_id, date);
 

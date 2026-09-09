@@ -65,7 +65,7 @@ function ReputationWidget({ reputation, expanded, onToggle }) {
   const stats = [
     ["Reclamos", reputation.claimsRate, "% de tus ventas del período con un reclamo abierto."],
     ["Canceladas por ti", reputation.cancellationRate, "% de tus ventas que vos cancelaste."],
-    ["Envíos con demora", reputation.delayRate, "% de tus ventas despachadas fuera de plazo."],
+    ["Envíos incorrectos", reputation.delayRate, "% de tus ventas con problemas de despacho (según la métrica delayed_handling_time de MercadoLibre)."],
   ];
   return (
     <div className="reputation-card" onClick={onToggle} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onToggle()}>
@@ -91,7 +91,7 @@ function ReputationDetail({ reputation }) {
   const cards = [
     ["Reclamos", reputation.claims, reputation.claimsRate, reputation.claimsChangePct],
     ["Canceladas por ti", reputation.cancellations, reputation.cancellationRate, reputation.cancellationsChangePct],
-    ["Envíos con demora", reputation.delays, reputation.delayRate, reputation.delaysChangePct],
+    ["Envíos incorrectos", reputation.delays, reputation.delayRate, reputation.delaysChangePct],
   ];
   const reasons = [
     ["Producto distinto al esperado", reputation.returnReasons.mismatchPct],

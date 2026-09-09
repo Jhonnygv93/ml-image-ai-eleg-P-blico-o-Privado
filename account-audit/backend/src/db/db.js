@@ -27,3 +27,12 @@ for (const [column, ddl] of [
 ]) {
   if (!sellerColumns.includes(column)) db.exec(ddl);
 }
+
+const reputationColumns = db.prepare("PRAGMA table_info(reputation)").all().map((c) => c.name);
+for (const [column, ddl] of [
+  ["claims_rate", "ALTER TABLE reputation ADD COLUMN claims_rate REAL"],
+  ["cancellations_rate", "ALTER TABLE reputation ADD COLUMN cancellations_rate REAL"],
+  ["delays_rate", "ALTER TABLE reputation ADD COLUMN delays_rate REAL"],
+]) {
+  if (!reputationColumns.includes(column)) db.exec(ddl);
+}
