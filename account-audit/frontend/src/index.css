@@ -152,6 +152,16 @@ body {
   border-color: var(--series-1);
   color: #fff;
 }
+.btn-connect {
+  width: 100%;
+  justify-content: center;
+  margin-top: 14px;
+  background: var(--series-1);
+  border-color: var(--series-1);
+  color: #fff;
+}
+.btn-connect:hover { background: color-mix(in srgb, var(--series-1) 85%, black); }
+.btn-connect:disabled { opacity: 0.6; cursor: default; }
 
 .hero-score {
   display: flex;

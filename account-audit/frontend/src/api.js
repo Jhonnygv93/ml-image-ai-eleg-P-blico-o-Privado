@@ -19,3 +19,4 @@ export const askAccount = (sellerId, question) =>
     body: JSON.stringify({ question }),
   });
 export const reportUrl = (sellerId) => `${BASE}/sellers/${sellerId}/report.pdf`;
+export const getOauthUrl = (siteId = "MLC") => req(`/ml/oauth/url?site_id=${encodeURIComponent(siteId)}`);

@@ -1,5 +1,5 @@
 import { useEffect, useState, Fragment } from "react";
-import { listSellers, getDashboard, askAccount, reportUrl } from "./api.js";
+import { listSellers, getDashboard, askAccount, reportUrl, getOauthUrl } from "./api.js";
 
 const money = (v) => `$${Math.round(v).toLocaleString("es-CL")}`;
 
@@ -604,15 +604,35 @@ export default function App() {
   const [sellers, setSellers] = useState(null);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState(null);
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState(null);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connectedId = params.get("connected");
+    if (connectedId) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
     listSellers()
       .then((list) => {
         setSellers(list);
-        if (list.length) setSelected(list[0].seller_id);
+        const target = connectedId && list.some((s) => s.seller_id === connectedId) ? connectedId : list[0]?.seller_id;
+        if (target) setSelected(target);
       })
       .catch((err) => setError(err.message));
   }, []);
+
+  async function handleConnectAccount() {
+    setConnectError(null);
+    setConnecting(true);
+    try {
+      const { url } = await getOauthUrl("MLC");
+      window.location.href = url;
+    } catch (err) {
+      setConnectError(err.message);
+      setConnecting(false);
+    }
+  }
 
   return (
     <div className="app">
@@ -633,6 +653,10 @@ export default function App() {
             </span>
           </div>
         ))}
+        <button className="btn btn-connect" onClick={handleConnectAccount} disabled={connecting}>
+          {connecting ? "Conectando…" : "+ Conectar cuenta"}
+        </button>
+        {connectError && <div className="error-box" style={{ marginTop: 10 }}>{connectError}</div>}
       </aside>
       <main className="main">{selected ? <Dashboard sellerId={selected} /> : <div className="loading">Seleccioná una cuenta…</div>}</main>
     </div>
