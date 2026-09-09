@@ -18,6 +18,14 @@ const MAX_ITEMS = 200; // cota razonable para no colgar el sync en catálogos en
 const HISTORY_DAYS = 90;
 const MAX_ORDERS = 1000; // cota de seguridad al paginar órdenes
 const MAX_CLAIMS = 300; // cota de seguridad al paginar reclamos
+// Los reclamos en MercadoLibre suelen resolverse (y cerrarse) semanas o meses
+// después de la compra, así que muchos reclamos "cerrados" apuntan a órdenes
+// muy anteriores a la ventana de 90 días que usamos para ventas/KPIs. Para
+// correlacionarlos con su publicación usamos una ventana de órdenes mucho más
+// amplia, pero SOLO para este propósito (no toca la tabla `sales` ni los
+// KPIs de 30/90 días, que siguen midiéndose igual que siempre).
+const CLAIMS_LOOKBACK_DAYS = 730;
+const MAX_CLAIMS_ORDERS = 2000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -260,6 +268,44 @@ async function syncSales(sellerId, itemIds, accessToken) {
 }
 
 /**
+ * Igual que el mapa orden->publicaciones que arma syncSales, pero con una
+ * ventana mucho más amplia (ver CLAIMS_LOOKBACK_DAYS) para poder correlacionar
+ * reclamos ya cerrados con órdenes antiguas. No toca `sales` ni ninguna otra
+ * tabla — solo se usa en memoria para syncClaimsByItem.
+ */
+async function buildOrderItemMapForClaims(sellerId, itemIds, accessToken) {
+  const itemIdSet = new Set(itemIds);
+  const dateFrom = `${dateStr(CLAIMS_LOOKBACK_DAYS - 1)}T00:00:00.000-00:00`;
+  const dateTo = `${todayStr()}T23:59:59.999-00:00`;
+  const orderItemMap = new Map();
+
+  let offset = 0;
+  const limit = 50;
+  let total = Infinity;
+  try {
+    while (offset < total && offset < MAX_CLAIMS_ORDERS) {
+      const page = await searchOrders(sellerId, accessToken, { dateFrom, dateTo, offset, limit });
+      total = page.paging ? page.paging.total : 0;
+      const results = Array.isArray(page.results) ? page.results : [];
+      for (const order of results) {
+        const orderKey = String(order.id);
+        for (const oi of order.order_items || []) {
+          const itemId = oi.item && oi.item.id;
+          if (!itemId || !itemIdSet.has(itemId)) continue;
+          if (!orderItemMap.has(orderKey)) orderItemMap.set(orderKey, new Set());
+          orderItemMap.get(orderKey).add(itemId);
+        }
+      }
+      offset += limit;
+      if (results.length === 0) break;
+    }
+  } catch (err) {
+    console.warn(`sync: no se pudieron traer órdenes históricas de ${sellerId} para correlacionar reclamos: ${err.message}`);
+  }
+  return orderItemMap;
+}
+
+/**
  * Trae los reclamos de la cuenta (API de post-venta) y los correlaciona con
  * publicaciones a través de `orderItemMap` (orden -> publicaciones de esa
  * orden, armado en syncSales). Es un fallo blando: si la API de reclamos no
@@ -314,7 +360,7 @@ async function syncClaimsByItem(sellerId, itemIds, accessToken, orderItemMap) {
     if (count) insertItemClaims.run(itemId, count);
   }
   console.log(
-    `sync: reclamos de ${sellerId} — ${claimsSeen} recibidos de la API (${perStatus.opened || 0} abiertos, ${perStatus.closed || 0} cerrados), ${claimsMatched} correlacionados con órdenes de los últimos ${HISTORY_DAYS} días, ${claimsByItem.size} publicaciones afectadas.`
+    `sync: reclamos de ${sellerId} — ${claimsSeen} recibidos de la API (${perStatus.opened || 0} abiertos, ${perStatus.closed || 0} cerrados), ${claimsMatched} correlacionados con órdenes de los últimos ${CLAIMS_LOOKBACK_DAYS} días, ${claimsByItem.size} publicaciones afectadas.`
   );
 }
 
@@ -388,8 +434,9 @@ export async function syncSeller(sellerId) {
     await sleep(80); // evita ráfagas que disparen el rate limit de la API de MercadoLibre
   }
 
-  const orderItemMap = await syncSales(sellerId, syncedItemIds, accessToken);
-  await syncClaimsByItem(sellerId, syncedItemIds, accessToken, orderItemMap);
+  await syncSales(sellerId, syncedItemIds, accessToken);
+  const claimsOrderItemMap = await buildOrderItemMapForClaims(sellerId, syncedItemIds, accessToken);
+  await syncClaimsByItem(sellerId, syncedItemIds, accessToken, claimsOrderItemMap);
   const powerSellerStatus = await syncSellerReputation(sellerId, accessToken);
   if (powerSellerStatus) {
     db.prepare(`UPDATE sellers SET reputation_tier = ? WHERE seller_id = ?`).run(powerSellerStatus, sellerId);
