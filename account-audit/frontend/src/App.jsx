@@ -312,6 +312,59 @@ function ClassificationTable({ classification }) {
   );
 }
 
+function ClassificationPanel({ classification }) {
+  const [expanded, setExpanded] = useState(false);
+  const [filterType, setFilterType] = useState(null);
+
+  const counts = {};
+  for (const c of classification) counts[c.tipo] = (counts[c.tipo] || 0) + 1;
+  const types = Object.keys(counts);
+  const filtered = filterType ? classification.filter((c) => c.tipo === filterType) : classification;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, cursor: "pointer" }} onClick={() => setExpanded((v) => !v)}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {types.map((t) => (
+            <span
+              key={t}
+              className={`badge ${TYPE_BADGE[t] || "badge-muted"}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(true);
+                setFilterType((cur) => (cur === t ? null : t));
+              }}
+              style={{ cursor: "pointer", boxShadow: filterType === t ? "0 0 0 2px var(--series-1)" : "none" }}
+              title={`Filtrar por ${t}`}
+            >
+              {t} {counts[t]}
+            </span>
+          ))}
+        </div>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--series-1)" }}>
+          {expanded ? "Ocultar detalle ▲" : "Ir a detalle ▸"}
+        </span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: 14 }}>
+          {filterType && (
+            <button
+              type="button"
+              className="btn"
+              style={{ marginBottom: 10, fontSize: 12, padding: "5px 10px" }}
+              onClick={() => setFilterType(null)}
+            >
+              Quitar filtro: {filterType} ✕
+            </button>
+          )}
+          <ClassificationTable classification={filtered} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const PRIORITY_BADGE = { alta: "badge-critical", media: "badge-warning", baja: "badge-muted" };
 
 function ActionPlan({ actionPlan }) {
@@ -452,7 +505,7 @@ function Dashboard({ sellerId }) {
 
       <section className="panel">
         <h3>Diagnóstico de publicaciones</h3>
-        <ClassificationTable classification={data.classification} />
+        <ClassificationPanel classification={data.classification} />
       </section>
 
       <section className="panel">
