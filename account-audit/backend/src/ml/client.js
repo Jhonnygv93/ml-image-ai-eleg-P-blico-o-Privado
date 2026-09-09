@@ -56,9 +56,9 @@ export async function searchQuestions(sellerId, accessToken, { status = "UNANSWE
 // Requiere que la app tenga el permiso correspondiente habilitado; si no lo
 // tiene, la llamada devuelve 403/404 y services/sync.js lo maneja como un
 // fallo blando (la sección simplemente no se muestra).
-export async function searchClaims(accessToken, sellerId, { limit = 50, offset = 0, status } = {}) {
+export async function searchClaims(accessToken, sellerId, { limit = 50, offset = 0, status, playerRole = "respondent" } = {}) {
   const params = new URLSearchParams({
-    player_role: "seller",
+    player_role: playerRole,
     player_user_id: String(sellerId),
     limit: String(limit),
     offset: String(offset),
